@@ -1,118 +1,122 @@
-# main.py
-
 import tkinter as tk
 from tkinter import messagebox
 import contatos
 
-class ContatoForm(tk.Toplevel):
-    def __init__(self, master, titulo, contato=None, on_submit=None):
-        super().__init__(master)
-        self.title(titulo)
-        self.on_submit = on_submit
-        self.resizable(False, False)
+# Atualiza a lista visível
+def atualizar_lista():
+    lista_contatos.delete(0, tk.END)
+    for contato in contatos.listar_contatos():
+        lista_contatos.insert(tk.END, contato["nome"])
 
-        # Campos
-        self.vars = {
-            "nome": tk.StringVar(value=contato['nome'] if contato else ""),
-            "endereco": tk.StringVar(value=contato['endereco'] if contato else ""),
-            "telefone": tk.StringVar(value=contato['telefone'] if contato else ""),
-            "email": tk.StringVar(value=contato['email'] if contato else "")
-        }
+# Formulário unificado para adicionar ou editar
+def abrir_formulario_contato(titulo, contato_existente=None, callback=None):
+    def salvar():
+        nome = entry_nome.get().strip()
+        endereco = entry_endereco.get().strip()
+        telefone = entry_telefone.get().strip()
+        email = entry_email.get().strip()
 
-        for i, campo in enumerate(self.vars):
-            tk.Label(self, text=campo.capitalize()).grid(row=i, column=0, sticky=tk.W, padx=10, pady=5)
-            tk.Entry(self, textvariable=self.vars[campo], width=40).grid(row=i, column=1, padx=10)
-
-        tk.Button(self, text="Salvar", command=self.submit).grid(row=4, column=0, columnspan=2, pady=10)
-
-    def submit(self):
-        dados = {k: v.get().strip() for k, v in self.vars.items()}
-        if not dados["nome"]:
-            messagebox.showwarning("Erro", "O nome é obrigatório.")
-            return
-        if self.on_submit:
-            self.on_submit(dados)
-        self.destroy()
-
-class AgendaApp:
-    def __init__(self, master):
-        self.master = master
-        master.title("Agenda de Contatos")
-
-        # Botões
-        tk.Button(master, text="Adicionar Contato", command=self.adicionar_contato).pack(fill=tk.X)
-        tk.Button(master, text="Listar Contatos", command=self.listar_contatos).pack(fill=tk.X)
-        tk.Button(master, text="Buscar Contato", command=self.buscar_contato).pack(fill=tk.X)
-        tk.Button(master, text="Editar Contato", command=self.editar_contato).pack(fill=tk.X)
-        tk.Button(master, text="Excluir Contato", command=self.excluir_contato).pack(fill=tk.X)
-        tk.Button(master, text="Sair", command=master.quit).pack(fill=tk.X)
-
-        # Área de exibição
-        self.texto = tk.Text(master, height=20, width=80)
-        self.texto.pack(pady=10)
-
-    def limpar_texto(self):
-        self.texto.delete('1.0', tk.END)
-
-    def exibir_contatos(self, lista):
-        self.limpar_texto()
-        if not lista:
-            self.texto.insert(tk.END, "Agenda vazia.\n")
-        else:
-            for i, c in enumerate(lista):
-                self.texto.insert(tk.END, f"{i + 1}. {c['nome']} - {c['telefone']} - {c['email']}\n")
-
-    def adicionar_contato(self):
-        def salvar(dados):
-            contatos.adicionar_contato(**dados)
-            messagebox.showinfo("Sucesso", "Contato adicionado com sucesso!")
-
-        ContatoForm(self.master, "Adicionar Contato", on_submit=salvar)
-
-    def listar_contatos(self):
-        lista = contatos.listar_contatos()
-        self.exibir_contatos(lista)
-
-    def buscar_contato(self):
-        nome = tk.simpledialog.askstring("Buscar", "Digite o nome do contato:")
         if not nome:
-            return
-        encontrados = contatos.buscar_contato_por_nome(nome)
-        self.limpar_texto()
-        if encontrados:
-            for c in encontrados:
-                self.texto.insert(tk.END,
-                    f"Nome: {c['nome']}\nEndereço: {c['endereco']}\nTelefone: {c['telefone']}\nEmail: {c['email']}\n---\n")
-        else:
-            self.texto.insert(tk.END, "Contato não encontrado.\n")
-
-    def editar_contato(self):
-        nome = tk.simpledialog.askstring("Editar", "Digite o nome do contato a editar:")
-        if not nome:
-            return
-        resultado = contatos.buscar_contato_por_nome(nome)
-        if not resultado:
-            messagebox.showwarning("Erro", "Contato não encontrado.")
+            messagebox.showerror("Erro", "O campo 'nome' é obrigatório.")
             return
 
-        def salvar(dados):
-            contatos.editar_contato(nome, dados['endereco'], dados['telefone'], dados['email'])
-            messagebox.showinfo("Sucesso", "Contato editado com sucesso!")
+        if callback:
+            callback(nome, endereco, telefone, email)
+        janela_form.destroy()
 
-        ContatoForm(self.master, "Editar Contato", contato=resultado[0], on_submit=salvar)
+    janela_form = tk.Toplevel(janela)
+    janela_form.title(titulo)
+    janela_form.grab_set()
 
-    def excluir_contato(self):
-        nome = tk.simpledialog.askstring("Excluir", "Digite o nome do contato a excluir:")
-        if not nome:
-            return
-        confirmado = messagebox.askyesno("Confirmar", f"Tem certeza que deseja excluir '{nome}'?")
-        if confirmado:
-            if contatos.excluir_contato(nome):
-                messagebox.showinfo("Sucesso", "Contato excluído com sucesso!")
-            else:
-                messagebox.showwarning("Erro", "Contato não encontrado.")
+    tk.Label(janela_form, text="Nome:").grid(row=0, column=0, sticky="e")
+    entry_nome = tk.Entry(janela_form, width=40)
+    entry_nome.grid(row=0, column=1)
 
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = AgendaApp(root)
-    root.mainloop()
+    tk.Label(janela_form, text="Endereço:").grid(row=1, column=0, sticky="e")
+    entry_endereco = tk.Entry(janela_form, width=40)
+    entry_endereco.grid(row=1, column=1)
+
+    tk.Label(janela_form, text="Telefone:").grid(row=2, column=0, sticky="e")
+    entry_telefone = tk.Entry(janela_form, width=40)
+    entry_telefone.grid(row=2, column=1)
+
+    tk.Label(janela_form, text="Email:").grid(row=3, column=0, sticky="e")
+    entry_email = tk.Entry(janela_form, width=40)
+    entry_email.grid(row=3, column=1)
+
+    if contato_existente:
+        entry_nome.insert(0, contato_existente["nome"])
+        entry_endereco.insert(0, contato_existente["endereco"])
+        entry_telefone.insert(0, contato_existente["telefone"])
+        entry_email.insert(0, contato_existente["email"])
+
+    btn_salvar = tk.Button(janela_form, text="Salvar", command=salvar)
+    btn_salvar.grid(row=4, column=0, columnspan=2, pady=10)
+
+# Adicionar contato
+def adicionar_contato():
+    def adicionar_callback(nome, endereco, telefone, email):
+        contatos.adicionar_contato(nome, endereco, telefone, email)
+        atualizar_lista()
+    abrir_formulario_contato("Adicionar Contato", callback=adicionar_callback)
+
+# Editar contato
+def editar_contato():
+    selecionado = lista_contatos.curselection()
+    if not selecionado:
+        messagebox.showwarning("Aviso", "Selecione um contato para editar.")
+        return
+    i = selecionado[0]
+    contato_atual = contatos.listar_contatos()[i]
+
+    def editar_callback(nome, endereco, telefone, email):
+        contatos.editar_contato(nome, endereco, telefone, email)
+        atualizar_lista()
+    abrir_formulario_contato("Editar Contato", contato_atual, callback=editar_callback)
+
+# Excluir contato
+def excluir_contato():
+    selecionado = lista_contatos.curselection()
+    if not selecionado:
+        messagebox.showwarning("Aviso", "Selecione um contato para excluir.")
+        return
+    i = selecionado[0]
+    contato = contatos.listar_contatos()[i]
+    confirm = messagebox.askyesno("Confirmação", f"Excluir o contato '{contato['nome']}'?")
+    if confirm:
+        contatos.excluir_contato(contato["nome"])
+        atualizar_lista()
+
+# Ver detalhes
+def mostrar_detalhes(event=None):
+    selecionado = lista_contatos.curselection()
+    if not selecionado:
+        return
+    i = selecionado[0]
+    contato = contatos.listar_contatos()[i]
+    detalhes = (
+        f"Nome: {contato['nome']}\n"
+        f"Endereço: {contato['endereco']}\n"
+        f"Telefone: {contato['telefone']}\n"
+        f"Email: {contato['email']}"
+    )
+    messagebox.showinfo("Detalhes do Contato", detalhes)
+
+# Janela principal
+janela = tk.Tk()
+janela.title("Agenda de Contatos")
+
+lista_contatos = tk.Listbox(janela, width=40, height=10)
+lista_contatos.pack(pady=10)
+lista_contatos.bind("<Double-Button-1>", mostrar_detalhes)
+
+frame_botoes = tk.Frame(janela)
+frame_botoes.pack()
+
+tk.Button(frame_botoes, text="Adicionar", command=adicionar_contato).grid(row=0, column=0, padx=5)
+tk.Button(frame_botoes, text="Editar", command=editar_contato).grid(row=0, column=1, padx=5)
+tk.Button(frame_botoes, text="Excluir", command=excluir_contato).grid(row=0, column=2, padx=5)
+tk.Button(frame_botoes, text="Ver Detalhes", command=mostrar_detalhes).grid(row=0, column=3, padx=5)
+
+atualizar_lista()
+janela.mainloop()
